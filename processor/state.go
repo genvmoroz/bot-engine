@@ -5,5 +5,5 @@ import (
 )
 
 type StateProcessor interface {
-	Process(channel tgBotApi.UpdatesChannel) error
+	Process(<-chan tgBotApi.Update) error
 }

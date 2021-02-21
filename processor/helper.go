@@ -3,7 +3,7 @@ package processor
 import (
 	"log"
 
-	bot "github.com/90poe/genvmoroz/bot-engine/api"
+	bot "github.com/genvmoroz/bot-engine/api"
 )
 
 func sendAndPrint(msg string, chatID int64, tgBot bot.Client) {

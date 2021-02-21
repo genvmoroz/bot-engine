@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	bot "github.com/90poe/genvmoroz/bot-engine/api"
+	bot "github.com/genvmoroz/bot-engine/api"
 	tgBotApi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 

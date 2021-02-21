@@ -1,4 +1,4 @@
-module github.com/90poe/genvmoroz/bot-engine
+module github.com/genvmoroz/bot-engine
 
 go 1.16
 

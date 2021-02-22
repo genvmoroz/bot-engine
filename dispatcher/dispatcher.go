@@ -1,9 +1,11 @@
 package dispatcher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 
 	bot "github.com/genvmoroz/bot-engine/api"
 	"github.com/genvmoroz/bot-engine/processor"
@@ -31,7 +33,7 @@ func New(tgBot bot.Client, createStateProcessorMapFunc func(bot.Client, int64) m
 	}, nil
 }
 
-func (d *Dispatcher) Dispatch(updateChan <-chan tgBotApi.Update) error {
+func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, updateChan <-chan tgBotApi.Update) error {
 	if d == nil {
 		return errors.New("dispatcher cannot be nil")
 	}
@@ -40,30 +42,43 @@ func (d *Dispatcher) Dispatch(updateChan <-chan tgBotApi.Update) error {
 	}
 
 	for {
-		update, ok := <-updateChan
-		if !ok {
-			log.Fatal("updateChan is closed")
-		}
-
-		chatID := update.Message.Chat.ID
-		existedChatProcessor, exist := d.chatProcessorMap[chatID]
-		if exist {
-			go d.putUpdateIntoChatProcessorAndLog(existedChatProcessor, update)
-		} else {
-			newChatProcess, err := processor.New(chatID, d.tgBot, d.createStateProcessorMapFunc(d.tgBot, chatID))
-			if err != nil {
-				return fmt.Errorf("failed to create a new processor[ID:%d]: %w", chatID, err)
+		select {
+		case <-ctx.Done():
+			return nil
+		case update, ok := <-updateChan:
+			if !ok {
+				return errors.New("updateChan is closed")
 			}
-			d.chatProcessorMap[chatID] = newChatProcess
-
-			go newChatProcess.Process()
-			go d.putUpdateIntoChatProcessorAndLog(newChatProcess, update)
+			if err := d.dispatchUpdate(ctx, wg, update); err != nil {
+				return fmt.Errorf("failed to dispatch update: %w", err)
+			}
 		}
 	}
 }
 
+func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, update tgBotApi.Update) error {
+	chatID := update.Message.Chat.ID
+	existedChatProcessor, exist := d.chatProcessorMap[chatID]
+	if exist {
+		d.putUpdateIntoChatProcessorAndLog(existedChatProcessor, update)
+	} else {
+		newChatProcess, err := processor.New(chatID, d.tgBot, d.createStateProcessorMapFunc(d.tgBot, chatID))
+		if err != nil {
+			return fmt.Errorf("failed to create a new processor[ID:%d]: %w", chatID, err)
+		}
+		d.chatProcessorMap[chatID] = newChatProcess
+
+		wg.Add(1)
+		go newChatProcess.Process(ctx, wg)
+
+		d.putUpdateIntoChatProcessorAndLog(newChatProcess, update)
+	}
+
+	return nil
+}
+
 func (d *Dispatcher) putUpdateIntoChatProcessorAndLog(p *processor.ChatProcessor, update tgBotApi.Update) {
 	if err := p.PutUpdate(update); err != nil {
-		log.Printf("failed to put the update into the processor[ID:%d]: %s", p.GetChatID(), err.Error())
+		log.Printf("failed to put the update into the chat[ID:%d]: %s", p.GetChatID(), err.Error())
 	}
 }

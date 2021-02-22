@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"sync"
 )
 
 type Router struct {
@@ -22,7 +23,9 @@ func New(port int32) *Router {
 	}
 }
 
-func (r *Router) ListenAndServeWithContext(ctx context.Context) error {
+func (r *Router) ListenAndServeWithContext(ctx context.Context, wg *sync.WaitGroup) error {
+	defer wg.Done()
+
 	http.HandleFunc("/debug/info", r.info)
 
 	go func() {
@@ -32,7 +35,7 @@ func (r *Router) ListenAndServeWithContext(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-	if err := r.srv.Shutdown(ctx); err != nil {
+	if err := r.srv.Shutdown(context.Background()); err != nil {
 		return fmt.Errorf("failed to shutdown: %w", err)
 	}
 

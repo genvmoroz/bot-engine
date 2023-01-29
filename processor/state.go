@@ -2,11 +2,10 @@ package processor
 
 import (
 	"context"
-	"sync"
 
-	tgBotApi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/genvmoroz/bot-engine/bot"
 )
 
 type StateProcessor interface {
-	Process(context.Context, *sync.WaitGroup, <-chan tgBotApi.Update) error
+	Process(context.Context, bot.UpdatesChannel) error
 }

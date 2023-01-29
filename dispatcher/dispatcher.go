@@ -4,21 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 
-	bot "github.com/genvmoroz/bot-engine/api"
+	"github.com/sirupsen/logrus"
+
+	"github.com/genvmoroz/bot-engine/bot"
 	"github.com/genvmoroz/bot-engine/processor"
-	tgBotApi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type Dispatcher struct {
-	tgBot                       bot.Client
-	chatProcessorMap            map[int64]*processor.ChatProcessor
-	createStateProcessorMapFunc func(bot.Client, int64) map[string]processor.StateProcessor
-}
+type (
+	CreateStateProcessorMapFunc func(*bot.Client, int64) map[string]processor.StateProcessor
 
-func New(tgBot bot.Client, createStateProcessorMapFunc func(bot.Client, int64) map[string]processor.StateProcessor) (*Dispatcher, error) {
+	Dispatcher struct {
+		tgBot                       *bot.Client
+		chatProcessorMap            map[int64]*processor.ChatProcessor
+		createStateProcessorMapFunc CreateStateProcessorMapFunc
+	}
+)
+
+func New(tgBot *bot.Client, createStateProcessorMapFunc CreateStateProcessorMapFunc) (*Dispatcher, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}
@@ -33,9 +37,7 @@ func New(tgBot bot.Client, createStateProcessorMapFunc func(bot.Client, int64) m
 	}, nil
 }
 
-func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, updateChan <-chan tgBotApi.Update) error {
-	defer wg.Done()
-
+func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, updateChan <-chan bot.Update) error {
 	if d == nil {
 		return errors.New("dispatcher cannot be nil")
 	}
@@ -58,29 +60,48 @@ func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, updateCha
 	}
 }
 
-func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, update tgBotApi.Update) error {
+func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, update bot.Update) error {
 	chatID := update.Message.Chat.ID
-	existedChatProcessor, exist := d.chatProcessorMap[chatID]
-	if exist {
-		d.putUpdateIntoChatProcessorAndLog(existedChatProcessor, update)
-	} else {
-		newChatProcess, err := processor.New(chatID, d.tgBot, d.createStateProcessorMapFunc(d.tgBot, chatID))
-		if err != nil {
-			return fmt.Errorf("failed to create a new processor[ID:%d]: %w", chatID, err)
+
+	if exist := d.putUpdateIntoExistedChatProcessor(chatID, update); !exist {
+		if err := d.createChatProcessor(ctx, wg, chatID); err != nil {
+			return fmt.Errorf("failed to create ChatProcessor [ID:%d]: %w", chatID, err)
 		}
-		d.chatProcessorMap[chatID] = newChatProcess
-
-		wg.Add(1)
-		go newChatProcess.Process(ctx, wg)
-
-		d.putUpdateIntoChatProcessorAndLog(newChatProcess, update)
+		if ok := d.putUpdateIntoExistedChatProcessor(chatID, update); !ok {
+			return fmt.Errorf("unexpected error: no chat processor created with ID: %d", chatID)
+		}
 	}
 
 	return nil
 }
 
-func (d *Dispatcher) putUpdateIntoChatProcessorAndLog(p *processor.ChatProcessor, update tgBotApi.Update) {
-	if err := p.PutUpdate(update); err != nil {
-		log.Printf("failed to put the update into the chat[ID:%d]: %s", p.GetChatID(), err.Error())
+func (d *Dispatcher) putUpdateIntoExistedChatProcessor(chatID int64, update bot.Update) bool {
+	existedChatProcessor, exist := d.chatProcessorMap[chatID]
+	if !exist {
+		return false
 	}
+
+	if err := existedChatProcessor.PutUpdate(update); err != nil {
+		logrus.Errorf(
+			"failed to put the update into the chat [ID:%d]: %s",
+			existedChatProcessor.GetChatID(), err.Error(),
+		)
+	}
+	return true
+}
+
+func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup, chatID int64) error {
+	newChatProcessor, err := processor.New(chatID, d.tgBot, d.createStateProcessorMapFunc(d.tgBot, chatID))
+	if err != nil {
+		return err
+	}
+	d.chatProcessorMap[chatID] = newChatProcessor
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		newChatProcessor.Process(ctx, wg)
+	}()
+
+	return nil
 }

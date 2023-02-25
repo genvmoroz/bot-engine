@@ -13,27 +13,27 @@ import (
 )
 
 type (
-	CreateStateProcessorMapFunc func(*bot.Client, int64) map[string]processor.StateProcessor
+	StateProvider func(*bot.Client, int64) map[string]processor.StateProcessor
 
 	Dispatcher struct {
-		tgBot                       *bot.Client
-		chatProcessorMap            map[int64]*processor.ChatProcessor
-		createStateProcessorMapFunc CreateStateProcessorMapFunc
+		tgBot            *bot.Client
+		chatProcessorMap map[int64]*processor.ChatProcessor
+		stateProvider    StateProvider
 	}
 )
 
-func New(tgBot *bot.Client, createStateProcessorMapFunc CreateStateProcessorMapFunc) (*Dispatcher, error) {
+func New(tgBot *bot.Client, stateProvider StateProvider) (*Dispatcher, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}
-	if createStateProcessorMapFunc == nil {
-		return nil, errors.New("createStateProcessorMapFunc cannot be nil")
+	if stateProvider == nil {
+		return nil, errors.New("StateProvider cannot be nil")
 	}
 
 	return &Dispatcher{
-		tgBot:                       tgBot,
-		chatProcessorMap:            make(map[int64]*processor.ChatProcessor),
-		createStateProcessorMapFunc: createStateProcessorMapFunc,
+		tgBot:            tgBot,
+		chatProcessorMap: make(map[int64]*processor.ChatProcessor),
+		stateProvider:    stateProvider,
 	}, nil
 }
 
@@ -91,7 +91,7 @@ func (d *Dispatcher) putUpdateIntoExistedChatProcessor(chatID int64, update bot.
 }
 
 func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup, chatID int64) error {
-	newChatProcessor, err := processor.New(chatID, d.tgBot, d.createStateProcessorMapFunc(d.tgBot, chatID))
+	newChatProcessor, err := processor.New(chatID, d.tgBot, d.stateProvider(d.tgBot, chatID))
 	if err != nil {
 		return err
 	}

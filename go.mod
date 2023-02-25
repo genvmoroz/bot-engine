@@ -1,6 +1,6 @@
 module github.com/genvmoroz/bot-engine
 
-go 1.19
+go 1.20
 
 require (
 	github.com/genvmoroz/client-go v1.0.0

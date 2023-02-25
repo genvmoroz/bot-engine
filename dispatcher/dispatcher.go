@@ -19,10 +19,12 @@ type (
 		tgBot            *bot.Client
 		chatProcessorMap map[int64]*processor.ChatProcessor
 		stateProvider    StateProvider
+
+		timeout uint
 	}
 )
 
-func New(tgBot *bot.Client, stateProvider StateProvider) (*Dispatcher, error) {
+func New(tgBot *bot.Client, stateProvider StateProvider, timeout uint) (*Dispatcher, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}
@@ -34,16 +36,17 @@ func New(tgBot *bot.Client, stateProvider StateProvider) (*Dispatcher, error) {
 		tgBot:            tgBot,
 		chatProcessorMap: make(map[int64]*processor.ChatProcessor),
 		stateProvider:    stateProvider,
+		timeout:          timeout,
 	}, nil
 }
 
-func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, updateChan <-chan bot.Update) error {
+func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, offset, limit int) error {
 	if d == nil {
 		return errors.New("dispatcher cannot be nil")
 	}
-	if updateChan == nil {
-		return errors.New("updateChan cannot be nil")
-	}
+
+	updateChan := d.tgBot.GetUpdateChannel(offset, limit, int(d.timeout))
+	defer updateChan.Clear()
 
 	for {
 		select {

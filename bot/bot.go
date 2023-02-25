@@ -2,9 +2,11 @@ package bot
 
 import (
 	"fmt"
-	"github.com/genvmoroz/client-go/http"
-	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	baseHTTP "net/http"
+
+	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
+	"github.com/genvmoroz/client-go/http"
 )
 
 type Client struct {

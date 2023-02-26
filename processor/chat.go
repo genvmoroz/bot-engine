@@ -18,7 +18,7 @@ type ChatProcessor struct {
 	stateProcessorMap map[string]StateProcessor
 }
 
-func New(chatID int64, tgBot *bot.Client, stateProcessorMap map[string]StateProcessor) (*ChatProcessor, error) {
+func NewChatProcessor(chatID int64, tgBot *bot.Client, stateProcessorMap map[string]StateProcessor) (*ChatProcessor, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}

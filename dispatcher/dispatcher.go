@@ -94,7 +94,7 @@ func (d *Dispatcher) putUpdateIntoExistedChatProcessor(chatID int64, update bot.
 }
 
 func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup, chatID int64) error {
-	newChatProcessor, err := processor.New(chatID, d.tgBot, d.stateProvider(d.tgBot, chatID))
+	newChatProcessor, err := processor.NewChatProcessor(chatID, d.tgBot, d.stateProvider(d.tgBot, chatID))
 	if err != nil {
 		return err
 	}

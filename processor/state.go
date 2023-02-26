@@ -8,4 +8,6 @@ import (
 
 type StateProcessor interface {
 	Process(context.Context, bot.UpdatesChannel) error
+	Command() string
+	Description() string
 }

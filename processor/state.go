@@ -7,7 +7,7 @@ import (
 )
 
 type StateProcessor interface {
-	Process(context.Context, bot.UpdatesChannel) error
+	Process(ctx context.Context, client *bot.Client, chatID int64, updateChan bot.UpdatesChannel) error
 	Command() string
 	Description() string
 }

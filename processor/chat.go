@@ -12,24 +12,24 @@ import (
 )
 
 type ChatProcessor struct {
-	chatID            int64
-	tgBot             *bot.Client
-	updateChan        chan bot.Update
-	stateProcessorMap map[string]StateProcessor
+	chatID     int64
+	tgBot      *bot.Client
+	updateChan chan bot.Update
+	states     map[string]StateProcessor
 }
 
-func NewChatProcessor(chatID int64, tgBot *bot.Client, stateProcessorMap map[string]StateProcessor) (*ChatProcessor, error) {
+func NewChatProcessor(chatID int64, tgBot *bot.Client, states map[string]StateProcessor) (*ChatProcessor, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}
-	if stateProcessorMap == nil {
-		return nil, errors.New("stateProcessorMap cannot be nil")
+	if len(states) == 0 {
+		return nil, errors.New("states cannot be empty. create one at least")
 	}
 	return &ChatProcessor{
-		chatID:            chatID,
-		tgBot:             tgBot,
-		updateChan:        make(chan bot.Update, 1),
-		stateProcessorMap: stateProcessorMap,
+		chatID:     chatID,
+		tgBot:      tgBot,
+		updateChan: make(chan bot.Update, 1),
+		states:     states,
 	}, nil
 }
 
@@ -66,10 +66,10 @@ func (p *ChatProcessor) Process(ctx context.Context, wg *sync.WaitGroup) {
 
 func (p *ChatProcessor) processUpdate(ctx context.Context, wg *sync.WaitGroup, update bot.Update) {
 	state := update.Message.Text
-	stateProcessor, exist := p.stateProcessorMap[state]
+	stateProcessor, exist := p.states[state]
 	if exist {
 		wg.Add(1)
-		if err := stateProcessor.Process(ctx, p.updateChan); err != nil {
+		if err := stateProcessor.Process(ctx, p.tgBot, p.chatID, p.updateChan); err != nil {
 			logrus.Errorf("failed to process the state %s, chatID: %d, error: %s", state, p.chatID, err.Error())
 		}
 		wg.Done()
@@ -93,6 +93,6 @@ func (p *ChatProcessor) GetChatID() int64 {
 }
 
 func (p *ChatProcessor) Close() {
-	p.stateProcessorMap = nil
+	p.states = nil
 	close(p.updateChan)
 }

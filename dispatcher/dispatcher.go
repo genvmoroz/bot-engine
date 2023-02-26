@@ -13,29 +13,29 @@ import (
 )
 
 type (
-	StateProvider func(*bot.Client, int64) map[string]processor.StateProcessor
+	States map[string]processor.StateProcessor
 
 	Dispatcher struct {
 		tgBot            *bot.Client
 		chatProcessorMap map[int64]*processor.ChatProcessor
-		stateProvider    StateProvider
+		states           States
 
 		timeout uint
 	}
 )
 
-func New(tgBot *bot.Client, stateProvider StateProvider, timeout uint) (*Dispatcher, error) {
+func New(tgBot *bot.Client, states States, timeout uint) (*Dispatcher, error) {
 	if tgBot == nil {
 		return nil, errors.New("tgBot cannot be nil")
 	}
-	if stateProvider == nil {
-		return nil, errors.New("StateProvider cannot be nil")
+	if len(states) == 0 {
+		return nil, errors.New("states cannot be empty, create one at least")
 	}
 
 	return &Dispatcher{
 		tgBot:            tgBot,
 		chatProcessorMap: make(map[int64]*processor.ChatProcessor),
-		stateProvider:    stateProvider,
+		states:           states,
 		timeout:          timeout,
 	}, nil
 }
@@ -94,7 +94,7 @@ func (d *Dispatcher) putUpdateIntoExistedChatProcessor(chatID int64, update bot.
 }
 
 func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup, chatID int64) error {
-	newChatProcessor, err := processor.NewChatProcessor(chatID, d.tgBot, d.stateProvider(d.tgBot, chatID))
+	newChatProcessor, err := processor.NewChatProcessor(chatID, d.tgBot, d.states)
 	if err != nil {
 		return err
 	}

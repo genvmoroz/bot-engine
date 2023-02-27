@@ -30,6 +30,13 @@ func (c *Client) Send(chatID int64, msg string) error {
 	return err
 }
 
+func (c *Client) SendWithParseMode(chatID int64, msg string, mode string) error {
+	msgConfig := base.NewMessage(chatID, msg)
+	msgConfig.ParseMode = mode
+	_, err := c.bot.Send(msgConfig)
+	return err
+}
+
 type (
 	Update         = base.Update
 	UpdatesChannel = base.UpdatesChannel

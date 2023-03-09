@@ -70,7 +70,14 @@ func (p *ChatProcessor) processUpdate(ctx context.Context, wg *sync.WaitGroup, u
 	if exist {
 		wg.Add(1)
 		if err := stateProcessor.Process(ctx, p.tgBot, p.chatID, p.updateChan); err != nil {
-			logrus.Errorf("failed to process the state %s, chatID: %d, error: %s", state, p.chatID, err.Error())
+			msg := fmt.Sprintf(
+				"failed to process the state %s, chatID: %d, error: %s",
+				state, p.chatID, err.Error(),
+			)
+			logrus.Error(msg)
+			if err = p.tgBot.Send(p.chatID, msg); err != nil {
+				logrus.Errorf("failed to send the message [%s] to the chat processor[ID:%d]: %s", msg, p.chatID, err.Error())
+			}
 		}
 		wg.Done()
 	} else {

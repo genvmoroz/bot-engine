@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/genvmoroz/bot-engine/bot"
 	"github.com/genvmoroz/bot-engine/processor"
+	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -57,7 +56,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, offset, l
 				return errors.New("updateChan is closed")
 			}
 			if err := d.dispatchUpdate(ctx, wg, update); err != nil {
-				return fmt.Errorf("failed to dispatch update: %w", err)
+				return fmt.Errorf("dispatch update: %w", err)
 			}
 		}
 	}
@@ -68,7 +67,7 @@ func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, upd
 
 	if exist := d.putUpdateIntoExistedChatProcessor(chatID, update); !exist {
 		if err := d.createChatProcessor(ctx, wg, chatID); err != nil {
-			return fmt.Errorf("failed to create ChatProcessor [ID:%d]: %w", chatID, err)
+			return fmt.Errorf("create ChatProcessor [ID:%d]: %w", chatID, err)
 		}
 		if ok := d.putUpdateIntoExistedChatProcessor(chatID, update); !ok {
 			return fmt.Errorf("unexpected error: no chat processor created with ID: %d", chatID)
@@ -86,7 +85,7 @@ func (d *Dispatcher) putUpdateIntoExistedChatProcessor(chatID int64, update bot.
 
 	if err := existedChatProcessor.PutUpdate(update); err != nil {
 		logrus.Errorf(
-			"failed to put the update into the chat [ID:%d]: %s",
+			"put the update into the chat [ID:%d]: %s",
 			existedChatProcessor.GetChatID(), err.Error(),
 		)
 	}

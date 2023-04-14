@@ -4,9 +4,8 @@ import (
 	"fmt"
 	baseHTTP "net/http"
 
-	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-
 	"github.com/genvmoroz/client-go/http"
+	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Client struct {
@@ -49,12 +48,12 @@ func (c *Client) GetUpdateChannel(offset, limit, timeout int) UpdatesChannel {
 func (c *Client) DownloadFile(fileID string) ([]byte, error) {
 	url, err := c.bot.GetFileDirectURL(fileID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file direct url: %w", err)
+		return nil, fmt.Errorf("get file direct url: %w", err)
 	}
 
 	client, err := http.NewClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create http client: %w", err)
+		return nil, fmt.Errorf("create http client: %w", err)
 	}
 
 	req := http.AcquireRequest()
@@ -73,11 +72,11 @@ func (c *Client) DownloadFile(fileID string) ([]byte, error) {
 	}()
 	switch {
 	case err != nil:
-		return nil, fmt.Errorf("failed to execute get request: %w", err)
+		return nil, fmt.Errorf("execute GET request: %w", err)
 	case resp == nil:
-		return nil, fmt.Errorf("nullable response from server, url: %s", url)
+		return nil, fmt.Errorf("nullable response from the server, url: %s", url)
 	case resp.StatusCode() != baseHTTP.StatusOK:
-		return nil, fmt.Errorf("status: %s %d", baseHTTP.StatusText(resp.StatusCode()), resp.StatusCode())
+		return nil, fmt.Errorf("status: %d %s", resp.StatusCode(), baseHTTP.StatusText(resp.StatusCode()))
 	}
 
 	return resp.Body(), nil

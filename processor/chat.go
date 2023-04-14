@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/genvmoroz/bot-engine/bot"
+	"github.com/sirupsen/logrus"
 )
 
 type ChatProcessor struct {
@@ -71,24 +70,22 @@ func (p *ChatProcessor) processUpdate(ctx context.Context, wg *sync.WaitGroup, u
 		wg.Add(1)
 		if err := stateProcessor.Process(ctx, p.tgBot, p.chatID, p.updateChan); err != nil {
 			msg := fmt.Sprintf(
-				"failed to process the state %s, chatID: %d, error: %s",
+				"process the state %s, chatID: %d, error: %s",
 				state, p.chatID, err.Error(),
 			)
 			logrus.Error(msg)
-			if err = p.tgBot.Send(p.chatID, msg); err != nil {
-				logrus.Errorf("failed to send the message [%s] to the chat processor[ID:%d]: %s", msg, p.chatID, err.Error())
-			}
+			p.mustSend(msg)
 		}
 		wg.Done()
 	} else {
-		msg := "Unknown command"
-		if err := p.tgBot.Send(p.chatID, msg); err != nil {
-			logrus.Errorf("failed to send the message [%s] to the chat processor[ID:%d]: %s", msg, p.chatID, err.Error())
-		}
+		p.mustSend("Unknown command")
 	}
-	msg := "You're in the main state"
+	p.mustSend("You're in the main state")
+}
+
+func (p *ChatProcessor) mustSend(msg string) {
 	if err := p.tgBot.Send(p.chatID, msg); err != nil {
-		logrus.Errorf("failed to send the message [%s] to the chat processor[ID:%d]: %s", msg, p.chatID, err.Error())
+		logrus.Errorf("send the message [%s] to the chat [ID:%d]: %s", msg, p.chatID, err.Error())
 	}
 }
 

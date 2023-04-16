@@ -9,7 +9,7 @@ import (
 )
 
 type Client struct {
-	bot *base.BotAPI
+	Bot *base.BotAPI
 }
 
 func NewClient(token string) (*Client, error) {
@@ -19,20 +19,20 @@ func NewClient(token string) (*Client, error) {
 	}
 
 	return &Client{
-		bot: bot,
+		Bot: bot,
 	}, nil
 }
 
 func (c *Client) Send(chatID int64, msg string) error {
 	msgConfig := base.NewMessage(chatID, msg)
-	_, err := c.bot.Send(msgConfig)
+	_, err := c.Bot.Send(msgConfig)
 	return err
 }
 
 func (c *Client) SendWithParseMode(chatID int64, msg string, mode string) error {
 	msgConfig := base.NewMessage(chatID, msg)
 	msgConfig.ParseMode = mode
-	_, err := c.bot.Send(msgConfig)
+	_, err := c.Bot.Send(msgConfig)
 	return err
 }
 
@@ -42,11 +42,11 @@ type (
 )
 
 func (c *Client) GetUpdateChannel(offset, limit, timeout int) UpdatesChannel {
-	return c.bot.GetUpdatesChan(c.newUpdateConfig(offset, limit, timeout))
+	return c.Bot.GetUpdatesChan(c.newUpdateConfig(offset, limit, timeout))
 }
 
 func (c *Client) DownloadFile(fileID string) ([]byte, error) {
-	url, err := c.bot.GetFileDirectURL(fileID)
+	url, err := c.Bot.GetFileDirectURL(fileID)
 	if err != nil {
 		return nil, fmt.Errorf("get file direct url: %w", err)
 	}

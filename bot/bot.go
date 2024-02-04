@@ -6,6 +6,7 @@ import (
 
 	"github.com/genvmoroz/client-go/http"
 	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/samber/lo"
 )
 
 type Client struct {
@@ -23,17 +24,29 @@ func NewClient(token string) (*Client, error) {
 	}, nil
 }
 
+const msgLim = 4096
+
 func (c *Client) Send(chatID int64, msg string) error {
-	msgConfig := base.NewMessage(chatID, msg)
-	_, err := c.Bot.Send(msgConfig)
-	return err
+	runes := []rune(msg)
+	for _, chunk := range lo.Chunk(runes, msgLim) {
+		msgConfig := base.NewMessage(chatID, string(chunk))
+		_, err := c.Bot.Send(msgConfig)
+		return err
+	}
+
+	return nil
 }
 
 func (c *Client) SendWithParseMode(chatID int64, msg string, mode string) error {
-	msgConfig := base.NewMessage(chatID, msg)
-	msgConfig.ParseMode = mode
-	_, err := c.Bot.Send(msgConfig)
-	return err
+	runes := []rune(msg)
+	for _, chunk := range lo.Chunk(runes, msgLim) {
+		msgConfig := base.NewMessage(chatID, string(chunk))
+		msgConfig.ParseMode = mode
+		_, err := c.Bot.Send(msgConfig)
+		return err
+	}
+
+	return nil
 }
 
 type (

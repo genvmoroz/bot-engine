@@ -2,10 +2,12 @@ package bot
 
 import (
 	"fmt"
+	"io"
+	"log"
 	baseHTTP "net/http"
 
-	"github.com/genvmoroz/client-go/http"
 	base "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	http "github.com/hashicorp/go-cleanhttp"
 	"github.com/samber/lo"
 )
 
@@ -64,23 +66,21 @@ func (c *Client) DownloadFile(fileID string) ([]byte, error) {
 		return nil, fmt.Errorf("get file direct url: %w", err)
 	}
 
-	client, err := http.NewClient()
+	client := http.DefaultClient()
+
+	req, err := baseHTTP.NewRequest(baseHTTP.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create http client: %w", err)
+		return nil, fmt.Errorf("create GET request: %w", err)
 	}
-
-	req := http.AcquireRequest()
-	defer http.ReleaseRequest(req)
-
-	req.Header.SetRequestURI(url)
-	req.Header.SetMethod(baseHTTP.MethodGet)
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Accept-Charset", "utf-8")
 
 	resp, err := client.Do(req)
 	defer func() {
 		if resp != nil {
-			http.ReleaseResponse(resp)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("close response body: %s", closeErr.Error())
+			}
 		}
 	}()
 	switch {
@@ -88,11 +88,15 @@ func (c *Client) DownloadFile(fileID string) ([]byte, error) {
 		return nil, fmt.Errorf("execute GET request: %w", err)
 	case resp == nil:
 		return nil, fmt.Errorf("nullable response from the server, url: %s", url)
-	case resp.StatusCode() != baseHTTP.StatusOK:
-		return nil, fmt.Errorf("status: %d %s", resp.StatusCode(), baseHTTP.StatusText(resp.StatusCode()))
+	case resp.StatusCode != baseHTTP.StatusOK:
+		return nil, fmt.Errorf("status: %d %s", resp.StatusCode, baseHTTP.StatusText(resp.StatusCode))
 	}
 
-	return resp.Body(), nil
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+	return respBody, nil
 }
 
 func (c *Client) newUpdateConfig(offset, limit, timeout int) base.UpdateConfig {

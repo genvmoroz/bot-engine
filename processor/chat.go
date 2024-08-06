@@ -6,33 +6,46 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/genvmoroz/bot-engine/bot"
+	"github.com/genvmoroz/bot-engine/tg"
 	"github.com/sirupsen/logrus"
 )
 
-type ChatProcessor struct {
-	chatID     int64
-	tgBot      *bot.Client
-	updateChan chan bot.Update
-	states     map[string]StateProcessor
-}
+type (
+	Client interface {
+		Send(chatID int64, msg string) error
+		GetUpdateChannel(offset, limit, timeout int) tg.UpdatesChannel
+	}
 
-func NewChatProcessor(chatID int64, tgBot *bot.Client, states map[string]StateProcessor) (*ChatProcessor, error) {
-	if tgBot == nil {
-		return nil, errors.New("tgBot cannot be nil")
+	StateProcessor interface {
+		Process(ctx context.Context, client Client, chatID int64, updateChan tg.UpdatesChannel) error
+		Command() string
+		Description() string
+	}
+
+	ChatProcessor struct {
+		chatID     int64
+		client     Client
+		updateChan chan tg.Update
+		states     map[string]StateProcessor
+	}
+)
+
+func NewChatProcessor(chatID int64, client Client, states map[string]StateProcessor) (*ChatProcessor, error) {
+	if client == nil {
+		return nil, errors.New("client is missing")
 	}
 	if len(states) == 0 {
-		return nil, errors.New("states cannot be empty. create one at least")
+		return nil, errors.New("states is missing. create one at least")
 	}
 	return &ChatProcessor{
 		chatID:     chatID,
-		tgBot:      tgBot,
-		updateChan: make(chan bot.Update, 1),
+		client:     client,
+		updateChan: make(chan tg.Update, 1),
 		states:     states,
 	}, nil
 }
 
-func (p *ChatProcessor) PutUpdate(update bot.Update) error {
+func (p *ChatProcessor) PutUpdate(update tg.Update) error {
 	if p.chatID != update.Message.Chat.ID {
 		return fmt.Errorf(
 			"the message was not delivered, original chatID %d does not match with message chatID %d",
@@ -58,45 +71,44 @@ func (p *ChatProcessor) Process(ctx context.Context, wg *sync.WaitGroup) {
 				logrus.Infof("updateChan is closed, chat[id:%d] is closed", p.chatID)
 				return
 			}
-			p.processUpdate(ctx, wg, update)
+			if err := p.processUpdate(ctx, wg, update); err != nil {
+				msg := fmt.Sprintf("failed to process an update for chat[id:%d]: %s", p.chatID, err.Error())
+				p.sendMessage(msg)
+				logrus.Error(msg)
+			}
 		}
 	}
 }
 
-func (p *ChatProcessor) processUpdate(ctx context.Context, wg *sync.WaitGroup, update bot.Update) {
+func (p *ChatProcessor) processUpdate(ctx context.Context, wg *sync.WaitGroup, update tg.Update) error {
 	state := update.Message.Text
 	stateProcessor, exist := p.states[state]
 	if exist {
 		wg.Add(1)
-		if err := stateProcessor.Process(ctx, p.tgBot, p.chatID, p.updateChan); err != nil {
-			msg := fmt.Sprintf(
-				"process the state %s, chatID: %d, error: %s",
-				state, p.chatID, err.Error(),
-			)
-			logrus.Error(msg)
-			p.mustSend(msg)
+		defer wg.Done()
+
+		inCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		if err := stateProcessor.Process(inCtx, p.client, p.chatID, p.updateChan); err != nil {
+			return fmt.Errorf("process the state %s: %w", state, err)
 		}
-		wg.Done()
 	} else {
-		p.mustSend("Unknown command")
+		p.sendMessage("Unknown command")
 	}
-	p.mustSend("You're in the main state")
+
+	p.sendMessage("You're in the main state")
+
+	return nil
 }
 
-func (p *ChatProcessor) mustSend(msg string) {
-	if err := p.tgBot.Send(p.chatID, msg); err != nil {
+func (p *ChatProcessor) sendMessage(msg string) {
+	if err := p.client.Send(p.chatID, msg); err != nil {
 		logrus.Errorf("send the message [%s] to the chat [ID:%d]: %s", msg, p.chatID, err.Error())
 	}
 }
 
-func (p *ChatProcessor) GetChatID() int64 {
-	if p == nil {
-		return 0
-	}
-	return p.chatID
-}
-
 func (p *ChatProcessor) Close() {
-	p.states = nil
+	clear(p.states)
 	close(p.updateChan)
 }

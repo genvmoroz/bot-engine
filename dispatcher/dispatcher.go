@@ -69,24 +69,28 @@ func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, offset, l
 func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, update tg.Update) error {
 	chatID := update.Message.Chat.ID
 
-	existedChatProcessor, exist := d.chatProcessorMap[chatID]
+	chatProcessor, exist := d.chatProcessorMap[chatID]
 	if !exist {
-		if err := d.createChatProcessor(ctx, wg, chatID); err != nil {
+		var err error
+		chatProcessor, err = d.createChatProcessor(ctx, wg, chatID)
+		if err != nil {
 			return fmt.Errorf("create ChatProcessor [ID:%d]: %w", chatID, err)
 		}
 	}
 
-	if err := existedChatProcessor.PutUpdate(update); err != nil {
+	if err := chatProcessor.PutUpdate(update); err != nil {
 		return fmt.Errorf("put the update into the chat [ID:%d]: %w", chatID, err)
 	}
 
 	return nil
 }
 
-func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup, chatID int64) error {
+func (d *Dispatcher) createChatProcessor(
+	ctx context.Context, wg *sync.WaitGroup, chatID int64,
+) (*processor.ChatProcessor, error) {
 	newChatProcessor, err := processor.NewChatProcessor(chatID, d.client, d.states)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	d.chatProcessorMap[chatID] = newChatProcessor
 
@@ -96,5 +100,5 @@ func (d *Dispatcher) createChatProcessor(ctx context.Context, wg *sync.WaitGroup
 		newChatProcessor.Process(ctx, wg)
 	}()
 
-	return nil
+	return newChatProcessor, nil
 }

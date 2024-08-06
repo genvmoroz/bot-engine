@@ -65,6 +65,17 @@ func (c *Client) SendWithParseMode(chatID int64, msg string, mode string) error 
 	return nil
 }
 
+func (c *Client) SendAudio(chatID int64, name string, bytes []byte) error {
+	audio := base.NewAudio(chatID,
+		base.FileBytes{
+			Name:  name,
+			Bytes: bytes,
+		},
+	)
+	_, err := c.doer.Send(audio)
+	return err
+}
+
 type (
 	Update         = base.Update
 	UpdatesChannel = base.UpdatesChannel

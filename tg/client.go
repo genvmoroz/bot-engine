@@ -51,12 +51,25 @@ func (c *Client) Send(chatID int64, msg string) error {
 	return nil
 }
 
-func (c *Client) SendWithParseMode(chatID int64, msg string, mode string) error {
+type ParseMode int
+
+const (
+	ModeMarkdown ParseMode = iota + 1
+	ModeMarkdownV2
+	ModeHTML
+)
+
+func (c *Client) SendWithParseMode(chatID int64, msg string, mode ParseMode) error {
+	apiMode, err := transformParseModeToAPI(mode)
+	if err != nil {
+		return fmt.Errorf("transform parse mode to API: %w", err)
+	}
+
 	runes := []rune(msg)
 	for _, chunk := range lo.Chunk(runes, msgLim) {
 		msgConfig := base.NewMessage(chatID, string(chunk))
-		msgConfig.ParseMode = mode
-		_, err := c.doer.Send(msgConfig)
+		msgConfig.ParseMode = apiMode
+		_, err = c.doer.Send(msgConfig)
 		if err != nil {
 			return err
 		}

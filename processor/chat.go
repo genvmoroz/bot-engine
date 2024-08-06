@@ -13,7 +13,9 @@ import (
 type (
 	Client interface {
 		Send(chatID int64, msg string) error
-		GetUpdateChannel(offset, limit, timeout int) tg.UpdatesChannel
+		SendWithParseMode(chatID int64, msg string, mode tg.ParseMode) error
+		SendAudio(chatID int64, name string, bytes []byte) error
+		DownloadFile(ctx context.Context, fileID string) ([]byte, error)
 	}
 
 	StateProcessor interface {

@@ -67,6 +67,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, wg *sync.WaitGroup, offset, l
 }
 
 func (d *Dispatcher) dispatchUpdate(ctx context.Context, wg *sync.WaitGroup, update tg.Update) error {
+	if update.Message == nil || update.Message.Chat == nil {
+		logrus.Infof("message or chat is missing: %v", update)
+		return nil
+	}
+
 	chatID := update.Message.Chat.ID
 
 	chatProcessor, exist := d.chatProcessorMap[chatID]
